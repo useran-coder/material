@@ -45,7 +45,9 @@ main{max-width:1680px;margin:0 auto;padding:18px 24px 60px}
 .chip:hover{border-color:var(--accent);color:var(--accent)}
 .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .bar input[type=date]{padding:5px 8px;font-size:12.5px}
-#qInfo{margin-left:auto;font-size:12.5px;color:var(--muted)}
+#srchWrap{align-items:center;gap:10px}
+#qInfo{display:flex;align-items:center;gap:6px;flex:0 0 auto;font-size:12.5px;color:var(--muted);white-space:nowrap}
+#qInfo:empty{display:none}
 #qInfo b{color:var(--accent)}
 #qClear{border:1px solid var(--line2);background:#fff;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700}
 
@@ -134,7 +136,7 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
   <div id="srchWrap"><form id="srch" role="search" autocomplete="off">
     <input id="q" type="search" placeholder="원자재(EGI 1.6 61) · 품번 · 품명 · 규격 · Lot" aria-label="검색">
     <button type="submit" title="검색">🔍</button>
-  </form></div>
+  </form><span id="qInfo"></span></div>
   <div class="hdr-right">
     <span id="syncChip" title="누르면 지금 시트를 다시 확인합니다">연결 전</span>
     <span id="auChip"></span>
@@ -160,7 +162,7 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
    - 로그인: 매출분석도구·가공비 견적기와 같은 계정·같은 저장 이름(dpt_auth_*)
    - 시트를 고치면 1분 안에 자동 반영 (창으로 돌아올 때도 바로 확인)
    ═══════════════════════════════════════════════════════════ */
-var MAT_VER='v3';
+var MAT_VER='v4';
 var AU_URL_DEFAULT='https://script.google.com/macros/s/AKfycbxSlND4ZKOpxISNQMRdV2d-LA5YxXS1BDe0k2TXKq6g7Tfm6PZ1Rse3mp0Nm4ndZXZdiQ/exec';
 var AU_KEY_DEFAULT='';   /* 비밀키는 공개 저장소에 넣지 않음 — 같은 브라우저의 매출분석·견적기 설정에서 찾거나 처음 한 번 입력 */
 var AU_ROLE={admin:'관리자',uploader:'업로더',user:'일반'};
@@ -380,8 +382,9 @@ function renderBar(){
     +Object.keys(parts).sort().map(function(p){return '<button type="button" class="chip'+(UI.part===p?' on':'')+'" data-part="'+esc(p)+'">'+esc(p)+'</button>';}).join('');
   h+='<span class="sep"></span><span class="lab">강종</span><button type="button" class="chip'+(!UI.grade?' on':'')+'" data-grade="">전체</button>'
     +Object.keys(grades).sort(function(a,b){return grades[b]-grades[a];}).map(function(g){return '<button type="button" class="chip'+(UI.grade===g?' on':'')+'" data-grade="'+esc(g)+'">'+esc(g)+'</button>';}).join('');
-  h+='<span id="qInfo">'+(UI.q?('검색 <b>'+esc(UI.q)+'</b> <button type="button" id="qClear">✕ 검색 지우기</button>'):'')+'</span>';
   $('fbar').innerHTML=h;
+  /* v4 : 검색 안내·지우기는 머리글 검색창 오른쪽에 */
+  $('qInfo').innerHTML=UI.q?('검색 <b>'+esc(UI.q)+'</b> <button type="button" id="qClear">✕ 검색 지우기</button>'):'';
   $('fbar').querySelectorAll('[data-per]').forEach(function(b){b.onclick=function(){UI.per=b.dataset.per;UI.open={};saveUI();render();};});
   $('fbar').querySelectorAll('[data-part]').forEach(function(b){b.onclick=function(){UI.part=b.dataset.part;UI.open={};saveUI();render();};});
   $('fbar').querySelectorAll('[data-grade]').forEach(function(b){b.onclick=function(){UI.grade=b.dataset.grade;UI.open={};saveUI();render();};});
