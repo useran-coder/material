@@ -186,7 +186,7 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
    - 로그인: 매출분석도구·가공비 견적기와 같은 계정·같은 저장 이름(dpt_auth_*)
    - 시트를 고치면 1분 안에 자동 반영 (창으로 돌아올 때도 바로 확인)
    ═══════════════════════════════════════════════════════════ */
-var MAT_VER='v9';
+var MAT_VER='v10';
 var AU_URL_DEFAULT='https://script.google.com/macros/s/AKfycbxSlND4ZKOpxISNQMRdV2d-LA5YxXS1BDe0k2TXKq6g7Tfm6PZ1Rse3mp0Nm4ndZXZdiQ/exec';
 var AU_KEY_DEFAULT='';   /* 비밀키는 공개 저장소에 넣지 않음 — 같은 브라우저의 매출분석·견적기 설정에서 찾거나 처음 한 번 입력 */
 var AU_ROLE={admin:'관리자',uploader:'업로더',user:'일반'};
@@ -223,13 +223,31 @@ function auMask(s){try{s=String(s||'');var k='dbps@2026#au',o='';for(var i=0;i<s
 function auUnmask(s){try{var t=decodeURIComponent(escape(atob(String(s||'')))),k='dbps@2026#au',o='';for(var i=0;i<t.length;i++)o+=String.fromCharCode(t.charCodeAt(i)^k.charCodeAt(i%k.length));return o;}catch(e){return '';}}
 function auRestore(){var v=lsGet('dpt_auth_v1');if(v&&typeof v==='object')AU=Object.assign(AU,v);}
 function auPersist(keep){lsSet('dpt_auth_v1',keep===false?null:{token:AU.token,id:AU.id,name:AU.name,role:AU.role,exp:AU.exp});}
-async function auCall(payload,timeoutMs,_try){
-  try{return await auCall0(payload,timeoutMs);}catch(e){if(e.retry&&(_try||0)<2){await new Promise(function(r){setTimeout(r,e.retryMs||1500);});return auCall(payload,timeoutMs,(_try||0)+1);}throw e;}
+async function auCall(payload,timeoutMs,_try,url){
+  try{return await auCall0(payload,timeoutMs,url);}catch(e){if(e.retry&&(_try||0)<2){await new Promise(function(r){setTimeout(r,e.retryMs||1500);});return auCall(payload,timeoutMs,(_try||0)+1,url);}throw e;}
 }
-async function auCall0(payload,timeoutMs){
+async function ruCall(payload,timeoutMs){
+  var u=ruUrl();
+  try{ return await auCall(Object.assign({},payload),timeoutMs,0,u); }
+  catch(e){
+    var unsup=/지원하지 않는 action|Unknown action|unsupported/i.test(e.message||'');
+    if(!unsup){ throw e; }
+    var tried=[u], cands=[AU_URL_DEFAULT, auUrl()].filter(function(x,i,a){ return x&&tried.indexOf(x)<0&&a.indexOf(x)===i; });
+    for(var i=0;i<cands.length;i++){
+      try{ var d=await auCall(Object.assign({},payload),timeoutMs,0,cands[i]); try{localStorage.setItem('mat_ru_url',cands[i]);}catch(_s){} return d; }
+      catch(e2){ if(!/지원하지 않는 action|Unknown action|unsupported/i.test(e2.message||''))throw e2; tried.push(cands[i]); }
+    }
+    try{localStorage.removeItem('mat_ru_url');}catch(_r){}
+    e.urls=tried; throw e;
+  }
+}
+/* v10 : 원자재 자료(ruGet)만 따로 서버 주소를 기억 — 이 PC 의 매출분석 설정 주소가 rawuse.gs 를 넣지 않은 다른 배포(옛 /exec)이면
+   «지원하지 않는 action» 이 나옴 → rawuse.gs 가 있는 기본 주소로 한 번 다시 시도하고, 되면 그 주소를 이 화면 전용(mat_ru_url)으로 기억 */
+function ruUrl(){try{return String(localStorage.getItem('mat_ru_url')||auUrl()).trim();}catch(e){return auUrl();}}
+async function auCall0(payload,timeoutMs,url){
   payload.key=auKey(); if(AU.token&&!payload.token)payload.token=AU.token;
   var ctl=new AbortController(), timer=setTimeout(function(){try{ctl.abort();}catch(e){}},timeoutMs||60000), r;
-  try{r=await fetch(auUrl(),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),signal:ctl.signal});}
+  try{r=await fetch(url||auUrl(),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),signal:ctl.signal});}
   catch(e){throw new Error(e&&e.name==='AbortError'?'서버가 응답하지 않음(시간 초과)':'서버에 연결하지 못함 — '+(e.message||e));}
   finally{clearTimeout(timer);}
   var tx=await r.text(), d;
@@ -639,7 +657,8 @@ var Data=(function(){
   function showErr(e){
     var m=String(e&&e.message||e||''), box=$('errBox');
     if(/ruGet|알 수 없는|Unknown action|지원하지 않는|unsupported/i.test(m)||/action/i.test(m)&&!/로그인/.test(m))
-      m+='<br>→ 서버에 <code>rawuse.gs</code> 가 아직 설치·배포되지 않은 것 같습니다. 관리자에게 «원자재 사용현황 서버 설치»를 요청하세요.';
+      m+='<br>→ 로그인은 되지만, 연결된 서버 주소에 <code>rawuse.gs</code> 가 없습니다. 확인한 주소: '+((e&&e.urls)||[ruUrl()]).map(function(u){return '<code>…'+esc(String(u).replace(/\/exec.*$/,'').slice(-10))+'/exec</code>';}).join(', ')
+        +'<br>→ 앱스스크립트에서 ① rawuse 파일이 있는지 ② Code.gs 의 doGet·doPost 에 <code>ruRoute_</code> 줄이 있는지 확인한 뒤 «배포 관리 → 연필 → 버전: 새 버전 → 배포»를 해 주세요. 배포가 여러 개면 위 주소의 배포를 고쳐야 합니다.';
     box.innerHTML='⚠ 시트 자료를 받지 못했습니다: '+m+(DB.rows.length?'<br>마지막으로 받은 자료('+esc(DB.at?new Date(DB.at).toLocaleString('ko-KR'):'')+')를 보여 주는 중입니다.':''); box.style.display='block';
     if(!DB.rows.length){$('loading').style.display='none';}
   }
@@ -647,7 +666,7 @@ var Data=(function(){
     if(busy||!auValid())return; busy=true; lastTry=Date.now();
     chip('busy','시트 확인 중…','');
     try{
-      var d=await auCall({action:'ruGet',rev:DB.rows.length?DB.rev:''},90000);
+      var d=await ruCall({action:'ruGet',rev:DB.rows.length?DB.rev:''},90000);
       if(!d||!d.ok)throw new Error((d&&d.error)||'응답이 올바르지 않음');
       $('errBox').style.display='none'; lastOk=Date.now(); err='';
       if(d.unchanged){ DB.at=d.at; if(manual)toast('시트 변경 없음 · '+hm(lastOk)+' 확인'); }
