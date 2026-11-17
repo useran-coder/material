@@ -57,6 +57,10 @@ main{max-width:1680px;margin:0 auto;padding:18px 24px 60px}
 .kpi .v{font-size:20px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
 .kpi .v small{font-size:12px;color:var(--muted);font-weight:700;margin-left:2px}
 .kpi .s{font-size:11px;color:var(--muted);margin-top:2px}
+.kpi[data-go]{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.kpi[data-go]:hover{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.10)}
+.kpi[data-go].on{border-color:var(--accent);background:var(--accent-soft)}
+.kpi[data-go] .k::after{content:' ›';color:var(--accent)}
 
 .tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
 .tab{border:1px solid var(--line2);background:#fff;border-radius:10px;padding:8px 14px;font-size:13.5px;font-weight:800;color:#334155}
@@ -162,7 +166,7 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
    - 로그인: 매출분석도구·가공비 견적기와 같은 계정·같은 저장 이름(dpt_auth_*)
    - 시트를 고치면 1분 안에 자동 반영 (창으로 돌아올 때도 바로 확인)
    ═══════════════════════════════════════════════════════════ */
-var MAT_VER='v4';
+var MAT_VER='v5';
 var AU_URL_DEFAULT='https://script.google.com/macros/s/AKfycbxSlND4ZKOpxISNQMRdV2d-LA5YxXS1BDe0k2TXKq6g7Tfm6PZ1Rse3mp0Nm4ndZXZdiQ/exec';
 var AU_KEY_DEFAULT='';   /* 비밀키는 공개 저장소에 넣지 않음 — 같은 브라우저의 매출분석·견적기 설정에서 찾거나 처음 한 번 입력 */
 var AU_ROLE={admin:'관리자',uploader:'업로더',user:'일반'};
@@ -398,15 +402,17 @@ function renderKpi(rows){
     if(o.d){ if(!d0||o.d<d0)d0=o.d; if(!d1||o.d>d1)d1=o.d; } if(o.prod>0&&!o.used)noLen++; });
   var L=lotStats(rows), br=s.prod?s.bad/s.prod*100:0;
   var K=[
-    ['사용 내역',N(rows.length),'건',d0?(d0+' ~ '+d1):'자료 없음'],
-    ['원자재 종류',N(Object.keys(mats).length),'종','강종·두께·폭 기준'],
-    ['생산 품목',N(Object.keys(items).length),'종','품번·품명·규격 기준'],
+    ['사용 내역',N(rows.length),'건',d0?(d0+' ~ '+d1):'자료 없음','list'],
+    ['원자재 종류',N(Object.keys(mats).length),'종','강종·두께·폭 기준','mat'],
+    ['생산 품목',N(Object.keys(items).length),'종','품번·품명·규격 기준','item'],
     ['생산 / 양품',N(s.prod),'ea','양품 '+N(s.good)+' · 불량율 '+N(br,1)+'%'],
     ['사용 중량',N(s.used,0),'kg',noLen?('⚠ 사용중량 0인 생산 '+N(noLen)+'건(길이 미기재)'):'제품에 실제로 들어간 소재'],
     ['재료비',W(s.cost),'원',s.used?('평균 '+N(s.cost/s.used,0)+'원/kg'):''],
     ['사용 코일(Lot)',N(L.n),'개','Lot 투입 '+N(L.w,0)+'kg (Lot당 1번만 셈)']
   ];
-  $('kpis').innerHTML=K.map(function(k){return '<div class="kpi"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'<small>'+k[2]+'</small></div><div class="s">'+esc(k[3])+'</div></div>';}).join('');
+  /* v5 : 사용 내역·원자재 종류·생산 품목 카드를 누르면 아래 표가 그 목록(전체 내역·원자재별·품목별)으로 바뀜 */
+  $('kpis').innerHTML=K.map(function(k){return '<div class="kpi'+(k[4]&&UI.tab===k[4]?' on':'')+'"'+(k[4]?' data-go="'+k[4]+'" title="누르면 아래 표에 '+k[0]+' 목록을 보여 줍니다"':'')+'><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'<small>'+k[2]+'</small></div><div class="s">'+esc(k[3])+'</div></div>';}).join('');
+  $('kpis').querySelectorAll('[data-go]').forEach(function(c){c.onclick=function(){UI.tab=c.dataset.go;UI.open={};UI.limit=300;saveUI();render();var t=$('tabs');if(t)t.scrollIntoView({behavior:'smooth',block:'start'});};});
 }
 function renderTabs(){
   var T=[['mat','🧱 원자재별 사용품목'],['item','📦 품목별 사용 원자재'],['month','📅 월별 사용량'],['list','📋 전체 내역']];
