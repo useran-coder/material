@@ -186,7 +186,7 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
    - 로그인: 매출분석도구·가공비 견적기와 같은 계정·같은 저장 이름(dpt_auth_*)
    - 시트를 고치면 1분 안에 자동 반영 (창으로 돌아올 때도 바로 확인)
    ═══════════════════════════════════════════════════════════ */
-var MAT_VER='v8';
+var MAT_VER='v9';
 var AU_URL_DEFAULT='https://script.google.com/macros/s/AKfycbxSlND4ZKOpxISNQMRdV2d-LA5YxXS1BDe0k2TXKq6g7Tfm6PZ1Rse3mp0Nm4ndZXZdiQ/exec';
 var AU_KEY_DEFAULT='';   /* 비밀키는 공개 저장소에 넣지 않음 — 같은 브라우저의 매출분석·견적기 설정에서 찾거나 처음 한 번 입력 */
 var AU_ROLE={admin:'관리자',uploader:'업로더',user:'일반'};
@@ -484,18 +484,22 @@ function bindSort(key,cols){
 /* 원자재별 */
 function groupBy(rows,keyf,init){ var M={},A=[]; rows.forEach(function(o){var k=keyf(o),g=M[k]; if(!g){g=M[k]=init(o,k);g.rows=[];A.push(g);} g.rows.push(o);}); return A; }
 function agg(g){ var s={n:g.rows.length,prod:0,good:0,bad:0,used:0,cost:0,last:''}; g.rows.forEach(function(o){s.prod+=o.prod;s.good+=o.good;s.bad+=o.bad;s.used+=o.used;s.cost+=o.cost;if(o.d>s.last)s.last=o.d;}); Object.assign(g,s); return g; }
+function monthSpan(){ var a='',b=''; DB.rows.forEach(function(o){ if(!/^\d{4}-\d{2}$/.test(o.ym))return; if(!a||o.ym<a)a=o.ym; if(!b||o.ym>b)b=o.ym; }); if(!a)return {n:0,t:''}; var n=(+b.slice(0,4)-a.slice(0,4))*12+(+b.slice(5)-a.slice(5))+1; return {n:n,t:a.replace('-','.')+'~'+b.replace('-','.')}; }
 function renderMat(rows){
-  var G=groupBy(rows,function(o){return o.mk;},function(o,k){return {k:k,mg:o.mg,mt:o.mt,mw:o.mw};}).map(function(g){agg(g);var it={};g.rows.forEach(function(o){it[o.ik]=1;});g.items=Object.keys(it).length;g.lots=lotStats(g.rows).n;g.avg=g.used?g.cost/g.used:0;return g;});
-  var cols={def:'used',list:[{k:'k',t:'원자재',v:function(g){return g.mg+' '+('000000'+g.mt.toFixed(2)).slice(-7)+('000000'+g.mw.toFixed(1)).slice(-7);}},{k:'items',t:'사용 품목',num:1},{k:'n',t:'사용 건수',num:1},{k:'lots',t:'코일(Lot)',num:1},{k:'prod',t:'생산수량',num:1},{k:'used',t:'사용중량(kg)',num:1},{k:'cost',t:'재료비(원)',num:1},{k:'avg',t:'평균 단가(원/kg)',num:1},{k:'last',t:'최근 사용일'}]};
-  var st=sortRows(G,'mat',cols), tot=agg({rows:rows});
+  var MS=UI.per==='all'?monthSpan():{n:0,t:''}, MC=MS.n, MR=MS.t;
+  var G=groupBy(rows,function(o){return o.mk;},function(o,k){return {k:k,mg:o.mg,mt:o.mt,mw:o.mw};}).map(function(g){agg(g);var it={};g.rows.forEach(function(o){it[o.ik]=1;});g.items=Object.keys(it).length;g.lots=lotStats(g.rows).n;g.avg=g.used?g.cost/g.used:0;g.mavg=MC?g.used/MC:0;return g;});
+  /* v9 : 기간이 «전체»일 때 사용중량 왼쪽에 월평균 사용중량 = 사용중량 ÷ 시트 전체 자료 개월 수(첫 달~마지막 달, 안 쓴 달 포함) */
+  var cols={def:'used',list:[{k:'k',t:'원자재',v:function(g){return g.mg+' '+('000000'+g.mt.toFixed(2)).slice(-7)+('000000'+g.mw.toFixed(1)).slice(-7);}},{k:'items',t:'사용 품목',num:1},{k:'n',t:'사용 건수',num:1},{k:'lots',t:'코일(Lot)',num:1},{k:'prod',t:'생산수량',num:1}].concat(MC?[{k:'mavg',t:'월평균 사용중량(kg)',num:1}]:[]).concat([{k:'used',t:'사용중량(kg)',num:1},{k:'cost',t:'재료비(원)',num:1},{k:'avg',t:'평균 단가(원/kg)',num:1},{k:'last',t:'최근 사용일'}])};
+  var st=sortRows(G,'mat',cols), tot=agg({rows:rows}), NC=MC?10:9;
   var h='<div class="note"><b>원자재별 사용품목</b> — 시트의 <b>시트 자재(강종·두께·폭)</b> 기준으로 묶었습니다(비어 있으면 BOM 정보). <b>행을 누르면</b> 그 원자재를 쓴 품목이 펼쳐집니다. 사용중량은 줄마다 시트의 «사용 중량»을 더한 값이고, 코일 투입중량은 같은 Lot 이 여러 줄에 반복되므로 더하지 않았습니다.</div>';
   h+='<div class="tw"><table><thead>'+thead('mat',cols,st)+'</thead><tbody>';
-  if(!G.length)h+='<tr><td colspan="9" class="empty">조건에 맞는 내역이 없습니다.</td></tr>';
+  if(MC)h=h.replace('</div>',' <b>월평균 사용중량</b>은 사용중량 ÷ '+MC+'개월('+MR+', 안 쓴 달 포함)입니다.</div>');
+  if(!G.length)h+='<tr><td colspan="'+NC+'" class="empty">조건에 맞는 내역이 없습니다.</td></tr>';
   G.forEach(function(g){ var op=!!UI.open[g.k];
-    h+='<tr class="g'+(op?' open':'')+'" data-k="'+esc(g.k)+'"><td class="mat">'+(op?'▾ ':'▸ ')+grTag(g.mg)+'<b>'+esc(fmtT(g.mt)+' × '+fmtW(g.mw))+'</b></td><td class="num">'+N(g.items)+'</td><td class="num">'+N(g.n)+'</td><td class="num">'+N(g.lots)+'</td><td class="num">'+N(g.prod)+'</td><td class="num"><b>'+N(g.used,1)+'</b></td><td class="num">'+W(g.cost)+'</td><td class="num">'+(g.avg?N(g.avg,0):'-')+'</td><td>'+esc(g.last)+'</td></tr>';
-    if(op)h+='<tr><td class="sub" colspan="9">'+matSub(g)+'</td></tr>';
+    h+='<tr class="g'+(op?' open':'')+'" data-k="'+esc(g.k)+'"><td class="mat">'+(op?'▾ ':'▸ ')+grTag(g.mg)+'<b>'+esc(fmtT(g.mt)+' × '+fmtW(g.mw))+'</b></td><td class="num">'+N(g.items)+'</td><td class="num">'+N(g.n)+'</td><td class="num">'+N(g.lots)+'</td><td class="num">'+N(g.prod)+'</td>'+(MC?'<td class="num">'+N(g.mavg,1)+'</td>':'')+'<td class="num"><b>'+N(g.used,1)+'</b></td><td class="num">'+W(g.cost)+'</td><td class="num">'+(g.avg?N(g.avg,0):'-')+'</td><td>'+esc(g.last)+'</td></tr>';
+    if(op)h+='<tr><td class="sub" colspan="'+NC+'">'+matSub(g)+'</td></tr>';
   });
-  if(G.length)h+='<tr class="tot"><td>합계 ('+N(G.length)+'종)</td><td></td><td class="num">'+N(tot.n)+'</td><td class="num">'+N(lotStats(rows).n)+'</td><td class="num">'+N(tot.prod)+'</td><td class="num">'+N(tot.used,1)+'</td><td class="num">'+W(tot.cost)+'</td><td class="num">'+(tot.used?N(tot.cost/tot.used,0):'-')+'</td><td></td></tr>';
+  if(G.length)h+='<tr class="tot"><td>합계 ('+N(G.length)+'종)</td><td></td><td class="num">'+N(tot.n)+'</td><td class="num">'+N(lotStats(rows).n)+'</td><td class="num">'+N(tot.prod)+'</td>'+(MC?'<td class="num">'+N(tot.used/MC,1)+'</td>':'')+'<td class="num">'+N(tot.used,1)+'</td><td class="num">'+W(tot.cost)+'</td><td class="num">'+(tot.used?N(tot.cost/tot.used,0):'-')+'</td><td></td></tr>';
   h+='</tbody></table></div>';
   $('view').innerHTML=h; bindSort('mat',cols);
   $('view').querySelectorAll('tr.g').forEach(function(tr){tr.onclick=function(e){ if(e.target.closest('a'))return; var k=tr.dataset.k; if(UI.open[k])delete UI.open[k]; else UI.open[k]=1; render(); };});
