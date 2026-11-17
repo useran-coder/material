@@ -186,7 +186,7 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
    - 로그인: 매출분석도구·가공비 견적기와 같은 계정·같은 저장 이름(dpt_auth_*)
    - 시트를 고치면 1분 안에 자동 반영 (창으로 돌아올 때도 바로 확인)
    ═══════════════════════════════════════════════════════════ */
-var MAT_VER='v7';
+var MAT_VER='v8';
 var AU_URL_DEFAULT='https://script.google.com/macros/s/AKfycbxSlND4ZKOpxISNQMRdV2d-LA5YxXS1BDe0k2TXKq6g7Tfm6PZ1Rse3mp0Nm4ndZXZdiQ/exec';
 var AU_KEY_DEFAULT='';   /* 비밀키는 공개 저장소에 넣지 않음 — 같은 브라우저의 매출분석·견적기 설정에서 찾거나 처음 한 번 입력 */
 var AU_ROLE={admin:'관리자',uploader:'업로더',user:'일반'};
@@ -444,9 +444,9 @@ function renderKpi(rows){
     if(o.d){ if(!d0||o.d<d0)d0=o.d; if(!d1||o.d>d1)d1=o.d; } if(o.prod>0&&!o.used)noLen++; });
   var L=lotStats(rows), br=s.prod?s.bad/s.prod*100:0;
   var K=[
-    ['사용 내역',N(rows.length),'건',d0?(d0+' ~ '+d1):'자료 없음','list'],
     ['원자재 종류',N(Object.keys(mats).length),'종','강종·두께·폭 기준','mat'],
     ['생산 품목',N(Object.keys(items).length),'종','품번·품명·규격 기준','item'],
+    ['사용 내역',N(rows.length),'건',d0?(d0+' ~ '+d1):'자료 없음','list'],
     ['생산 / 양품',N(s.prod),'ea','양품 '+N(s.good)+' · 불량율 '+N(br,1)+'%'],
     ['사용 중량',N(s.used,0),'kg',noLen?('⚠ 사용중량 0인 생산 '+N(noLen)+'건(길이 미기재)'):'제품에 실제로 들어간 소재'],
     ['재료비',W(s.cost),'원',s.used?('평균 '+N(s.cost/s.used,0)+'원/kg'):''],
