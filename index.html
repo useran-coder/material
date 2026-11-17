@@ -22,8 +22,26 @@ header.top{position:sticky;top:0;z-index:50;background:#fff;border-bottom:2px so
 .brand{display:flex;flex-direction:column;line-height:1.15;flex:0 0 auto}
 .brand h1{margin:0;font-size:19px;font-weight:800;color:var(--navy);letter-spacing:-.2px}
 .brand small{font-size:11.5px;color:var(--muted);font-weight:600}
-a.brand{text-decoration:none;cursor:pointer}
-a.brand:hover h1{color:var(--accent)}
+/* v7 월별 추이 그래프 (매입분석도구 추이 그래프와 같은 모양) */
+.ptrend{margin:0 0 12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(20,40,74,.05);overflow:hidden}
+.ptrend .pt-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 13px;border-bottom:1px solid #eef2f7;background:#fbfcfe}
+.ptrend .pt-title{font-size:12.5px;font-weight:800;color:#16284a;white-space:nowrap}
+.ptrend .pt-years{display:inline-flex;gap:4px}
+.ptrend .pt-year{border:1px solid #d7dfea;background:#fff;color:#5b6b82;border-radius:999px;padding:3px 11px;font-size:11.5px;font-weight:800;font-family:inherit;cursor:pointer;line-height:1.5}
+.ptrend .pt-year:hover{border-color:#2f7ef0;color:#2f7ef0}
+.ptrend .pt-year.on{background:#16284a;border-color:#16284a;color:#fff}
+.ptrend .pt-units{display:inline-flex;border:1px solid #d7dfea;border-radius:999px;overflow:hidden;margin-left:2px}
+.ptrend .pt-unit{border:0;background:#fff;color:#5b6b82;padding:3px 11px;font-size:11.5px;font-weight:800;font-family:inherit;cursor:pointer;line-height:1.5}
+.ptrend .pt-unit+.pt-unit{border-left:1px solid #e6ecf4}
+.ptrend .pt-unit:hover{color:#2f7ef0}
+.ptrend .pt-unit.on{background:#0d9488;color:#fff}
+.ptrend .pt-stats{margin-left:auto;font-size:11.5px;color:#7b8798;font-weight:600;white-space:nowrap}
+.ptrend .pt-stats b{color:#16284a}
+.ptrend .pt-stats b.r{color:#ef4444}
+.ptrend .pt-stats b.g{color:#0d9488}
+.ptrend .pt-stats b.y{color:#a16207}
+.ptrend .pt-svg{padding:4px 6px 0}
+.ptrend-empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}
 #srchWrap{flex:1 1 auto;display:flex;justify-content:center;min-width:0}
 #srch{display:flex;align-items:center;width:min(560px,100%);height:38px;border:1px solid var(--line2);border-radius:10px;background:#fff;overflow:hidden}
 #srch:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
@@ -138,7 +156,7 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="https://useran-coder.github.io/bookmark/" title="업무분석도구 홈으로"><h1>원자재 사용현황</h1><small>(주)동방파스텍 · 생산일지 «원자재 사용현황» 시트 연동</small></a>
+  <div class="brand"><h1>원자재 사용현황</h1><small>(주)동방파스텍 · 생산일지 «원자재 사용현황» 시트 연동</small></div>
   <div id="srchWrap"><form id="srch" role="search" autocomplete="off">
     <input id="q" type="search" placeholder="원자재(EGI 1.6 61) · 품번 · 품명 · 규격 · Lot" aria-label="검색">
     <button type="submit" title="검색">🔍</button>
@@ -168,7 +186,7 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
    - 로그인: 매출분석도구·가공비 견적기와 같은 계정·같은 저장 이름(dpt_auth_*)
    - 시트를 고치면 1분 안에 자동 반영 (창으로 돌아올 때도 바로 확인)
    ═══════════════════════════════════════════════════════════ */
-var MAT_VER='v6';
+var MAT_VER='v7';
 var AU_URL_DEFAULT='https://script.google.com/macros/s/AKfycbxSlND4ZKOpxISNQMRdV2d-LA5YxXS1BDe0k2TXKq6g7Tfm6PZ1Rse3mp0Nm4ndZXZdiQ/exec';
 var AU_KEY_DEFAULT='';   /* 비밀키는 공개 저장소에 넣지 않음 — 같은 브라우저의 매출분석·견적기 설정에서 찾거나 처음 한 번 입력 */
 var AU_ROLE={admin:'관리자',uploader:'업로더',user:'일반'};
@@ -323,7 +341,7 @@ function buildRows(head,rows){
 var DB={rows:[],rev:'',at:'',n:0,sheet:'',title:'',url:''};
 var UI=Object.assign({tab:'mat',q:'',per:'all',from:'',to:'',part:'',grade:'',sort:{},open:{},mMetric:'used',mBy:'mat',limit:300},lsGet(UI_KEY)||{});
 UI.open={}; UI.limit=300;
-function saveUI(){lsSet(UI_KEY,{tab:UI.tab,per:UI.per,from:UI.from,to:UI.to,part:UI.part,grade:UI.grade,sort:UI.sort,mMetric:UI.mMetric,mBy:UI.mBy});}
+function saveUI(){lsSet(UI_KEY,{mYear:UI.mYear||'',tab:UI.tab,per:UI.per,from:UI.from,to:UI.to,part:UI.part,grade:UI.grade,sort:UI.sort,mMetric:UI.mMetric,mBy:UI.mBy});}
 
 function N(v,d){ if(!isFinite(v))return '-'; return Number(v).toLocaleString('ko-KR',{maximumFractionDigits:d==null?0:d,minimumFractionDigits:d||0}); }
 function W(v){ return N(Math.round(v)); }
@@ -375,7 +393,7 @@ function lotStats(rows){ var L={}; rows.forEach(function(o){ if(!o.lot)return; v
 /* ───── 그리기 ───── */
 /* v6 : 브라우저 뒤로·앞으로 — 탭·검색·기간·파트·강종·월별 기준이 바뀔 때마다 기록, 뒤로 가면 그 화면으로 */
 var NAV={busy:false,last:''}; try{ history.scrollRestoration='manual'; }catch(_e){}
-function navSnap(){ return {tab:UI.tab,q:UI.q,per:UI.per,from:UI.from,to:UI.to,part:UI.part,grade:UI.grade,mBy:UI.mBy,mMetric:UI.mMetric}; }
+function navSnap(){ return {mYear:UI.mYear||'',tab:UI.tab,q:UI.q,per:UI.per,from:UI.from,to:UI.to,part:UI.part,grade:UI.grade,mBy:UI.mBy,mMetric:UI.mMetric}; }
 function navRecord(){
   if(NAV.busy||!DB.rows.length)return;
   var st=navSnap(), k=JSON.stringify(st);
@@ -518,6 +536,56 @@ function itemSub(g){
   return h+'</tbody></table>'+(R.length>500?'<div class="muted" style="font-size:12px;margin-top:6px">최근 500건만 표시</div>':'')+'</div>';
 }
 /* 월별 */
+/* v7 : 월별 사용량 표 위 추이 그래프 — 지금 조건(기간·파트·강종·검색)에 맞는 줄을 연도별 1~12월로 합산 */
+function trendHtml(rows){
+  var mm=UI.mMetric, ys={}; rows.forEach(function(o){ if(/^\d{4}/.test(o.ym))ys[o.ym.slice(0,4)]=1; });
+  ys=Object.keys(ys).sort().reverse(); if(!ys.length)return '';
+  var cy=String(new Date().getFullYear()), year=(UI.mYear&&ys.indexOf(UI.mYear)>=0)?UI.mYear:(ys.indexOf(cy)>=0?cy:ys[0]);
+  var dg=mm==='used'?1:0, unitTxt={used:'kg',cost:'원',prod:'ea'}[mm];
+  var U=function(x,d){ return N(x,d==null?0:d)+unitTxt; };
+  var v=Array(12).fill(0), n=Array(12).fill(0);
+  rows.forEach(function(o){ if(String(o.ym).slice(0,4)!==year)return; var mi=+o.ym.slice(5,7)-1; if(mi<0||mi>11)return; v[mi]+=(+o[mm]||0); n[mi]++; });
+  var tot=v.reduce(function(a,b){return a+b;},0), cnt=n.reduce(function(a,b){return a+b;},0);
+  var live=[]; for(var i=0;i<12;i++)if(n[i]>0)live.push(i);
+  var label=UI.q?('검색 «'+UI.q+'»'):(UI.grade?UI.grade:'전체')+(UI.part?' · '+UI.part:'');
+  var chips=ys.map(function(y){return '<button type="button" class="pt-year'+(y===year?' on':'')+'" data-pty="'+esc(y)+'">'+esc(y)+'년</button>';}).join('');
+  var units='<span class="pt-units">'+[['used','사용중량(kg)'],['cost','재료비(원)'],['prod','생산수량']].map(function(x){return '<button type="button" class="pt-unit'+(mm===x[0]?' on':'')+'" data-ptu="'+x[0]+'">'+x[1]+'</button>';}).join('')+'</span>';
+  var mname={used:'사용중량',cost:'재료비',prod:'생산수량'}[mm];
+  if(!live.length)return '<div class="ptrend"><div class="pt-head"><span class="pt-title">📈 '+esc(label)+' · '+year+'년 · 월별 '+mname+' 추이</span><span class="pt-years">'+chips+'</span>'+units+'</div><div class="ptrend-empty">'+year+'년 자료가 없습니다.</div></div>';
+  var avg=tot/live.length, mxi=live[0], mni=live[0];
+  live.forEach(function(i){ if(v[i]>v[mxi])mxi=i; if(v[i]<v[mni])mni=i; });
+  var curMonth=(year===cy)?(new Date().getMonth()+1):0;
+  var WD=Math.max(660,Math.round(($('view')&&$('view').clientWidth)||1180)-14), H=330,pL=58,pR=132,pT=56,pB=36, iw=WD-pL-pR, ih=H-pT-pB;
+  var top=Math.max(1,Math.max.apply(null,v))*1.14, X=function(i){return pL+iw*i/11;}, Y=function(x){return pT+ih-(x/top)*ih;};
+  /* 시트 자료가 시작되기 전 달·아직 오지 않은 달은 선을 그리지 않음(0으로 떨어져 보이지 않게) */
+  var s0=11; DB.rows.forEach(function(o){ if(String(o.ym).slice(0,4)===year){ var mi=+o.ym.slice(5,7)-1; if(mi>=0&&mi<s0)s0=mi; } });
+  var e0=curMonth?curMonth-1:11; if(s0>e0)s0=e0;
+  var pts=[],dots='',labs='';
+  for(var j=0;j<12;j++){
+    if(j<s0||j>e0)continue;
+    var x=X(j),y=Y(v[j]),isMax=j===mxi,isMin=j===mni&&mxi!==mni, col=isMax?'#ef4444':(isMin?'#10b981':'#2f7ef0'), r=isMax||isMin?6.5:4.5;
+    pts.push(x.toFixed(1)+','+y.toFixed(1));
+    dots+='<g><circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+r+'" fill="'+col+'" stroke="#fff" stroke-width="'+(isMax||isMin?2:1.5)+'"><title>'+(j+1)+'월 '+U(v[j],dg)+' · '+N(n[j])+'건</title></circle></g>';
+    var anc=j===0?'start':(j===11?'end':'middle'), lx=j===0?x-4:(j===11?x+4:x);
+    labs+='<text x="'+lx.toFixed(1)+'" y="'+(y-14).toFixed(1)+'" text-anchor="'+anc+'" font-size="13" font-weight="'+(isMax||isMin?'800':'600')+'" fill="'+(isMax?'#ef4444':(isMin?'#0d9488':'#334155'))+'">'+N(v[j],dg)+'</text>';
+    var low=y>pT+ih*0.72, by=low?y-50:y+12, bt=low?y-36:y+26, bx=Math.min(Math.max(x-22,pL-18),WD-pR-26);
+    if(isMax)labs+='<g><rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="44" height="20" rx="10" fill="#fff" stroke="#ef4444"/><text x="'+(bx+22).toFixed(1)+'" y="'+bt.toFixed(1)+'" text-anchor="middle" font-size="11.5" font-weight="800" fill="#ef4444">최고</text></g>';
+    if(isMin)labs+='<g><rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="44" height="20" rx="10" fill="#fff" stroke="#10b981"/><text x="'+(bx+22).toFixed(1)+'" y="'+bt.toFixed(1)+'" text-anchor="middle" font-size="11.5" font-weight="800" fill="#0d9488">최저</text></g>';
+  }
+  var xa=''; for(var k=0;k<12;k++){ var hot=k===mxi?'#ef4444':((k===mni&&mxi!==mni)?'#0d9488':'#94a3b8'); xa+='<text x="'+X(k).toFixed(1)+'" y="'+(H-12)+'" text-anchor="middle" font-size="12.5" font-weight="'+((k===mxi||k===mni)?'800':'600')+'" fill="'+hot+'">'+(k+1)+'월</text>'; }
+  var ay=Y(avg), avgLine='<line x1="'+pL+'" y1="'+ay.toFixed(1)+'" x2="'+(WD-pR+10)+'" y2="'+ay.toFixed(1)+'" stroke="#facc15" stroke-width="1.8" stroke-dasharray="7 5"/><g><rect x="'+(WD-pR+16)+'" y="'+(ay-13).toFixed(1)+'" width="'+(pR-24)+'" height="26" rx="13" fill="#fffbea" stroke="#facc15"/><text x="'+(WD-pR+16+(pR-24)/2)+'" y="'+(ay+4.5).toFixed(1)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#a16207">평균 '+N(avg,dg)+'</text></g>';
+  var nowLine=''; if(curMonth){ var nx=X(curMonth-1); nowLine='<line x1="'+nx.toFixed(1)+'" y1="'+(pT-16)+'" x2="'+nx.toFixed(1)+'" y2="'+(pT+ih+6)+'" stroke="#f87171" stroke-width="1.4" stroke-dasharray="6 5"/><g><rect x="'+(nx-40).toFixed(1)+'" y="'+(pT-36)+'" width="80" height="22" rx="11" fill="#fff" stroke="#f87171"/><text x="'+nx.toFixed(1)+'" y="'+(pT-21)+'" text-anchor="middle" font-size="11.5" font-weight="800" fill="#ef4444">'+curMonth+'월 현재</text></g>'; }
+  var base='<line x1="'+pL+'" y1="'+(pT+ih)+'" x2="'+(WD-pR+10)+'" y2="'+(pT+ih)+'" stroke="#e5eaf1"/>';
+  var svg='<svg viewBox="0 0 '+WD+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="xMinYMin meet">'+base+avgLine+nowLine+'<polyline points="'+pts.join(' ')+'" fill="none" stroke="#2f7ef0" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>'+dots+labs+xa+'</svg>';
+  var head='<div class="pt-head"><span class="pt-title">📈 '+esc(label)+' · '+year+'년 · 월별 '+mname+' 추이</span><span class="pt-years">'+chips+'</span>'+units
+    +'<span class="pt-stats">합계 <b>'+U(tot,dg)+'</b> · 평균 <b class="y">'+U(avg,dg)+'</b>(사용월 '+live.length+'개월) · 최고 <b class="r">'+U(v[mxi],dg)+'</b>('+(mxi+1)+'월) · 최저 <b class="g">'+U(v[mni],dg)+'</b>('+(mni+1)+'월) · '+N(cnt)+'건'+(curMonth?' · '+curMonth+'월 진행 중':'')+'</span></div>';
+  return '<div class="ptrend">'+head+'<div class="pt-svg">'+svg+'</div></div>';
+}
+function bindTrend(){
+  $('view').querySelectorAll('[data-pty]').forEach(function(b){b.onclick=function(){UI.mYear=b.dataset.pty;saveUI();render();};});
+  $('view').querySelectorAll('[data-ptu]').forEach(function(b){b.onclick=function(){UI.mMetric=b.dataset.ptu;saveUI();render();};});
+}
+var _trRz=0; addEventListener('resize',function(){ clearTimeout(_trRz); _trRz=setTimeout(function(){ if(UI.tab==='month'&&DB.rows.length)render(); },250); });
 function renderMonth(rows){
   var by=UI.mBy, mm=UI.mMetric, months={};
   rows.forEach(function(o){ if(o.ym)months[o.ym]=1; }); var M=Object.keys(months).sort();
@@ -527,7 +595,7 @@ function renderMonth(rows){
   G.sort(function(a,b){return b.t-a.t;});
   var max=0; G.forEach(function(g){M.forEach(function(m){if((g.m[m]||0)>max)max=g.m[m];});});
   var dg=mm==='used'?1:0, colTot={}, all=0;
-  var h='<div class="note"><b>월별 '+({used:'사용중량(kg)',cost:'재료비(원)',prod:'생산수량(ea)'}[mm])+'</b> — '+({mat:'원자재',grade:'강종',item:'품목'}[by])+'별. 칸이 진할수록 많이 쓴 달입니다. 이름을 누르면 그 항목으로 검색합니다.</div>';
+  var h=trendHtml(rows)+'<div class="note"><b>월별 '+({used:'사용중량(kg)',cost:'재료비(원)',prod:'생산수량(ea)'}[mm])+'</b> — '+({mat:'원자재',grade:'강종',item:'품목'}[by])+'별. 칸이 진할수록 많이 쓴 달입니다. 이름을 누르면 그 항목으로 검색합니다.</div>';
   h+='<div class="tw"><table><thead><tr><th>'+({mat:'원자재',grade:'강종',item:'품목'}[by])+'</th>'+M.map(function(m){return '<th class="num">'+esc(m.replace('-','.'))+'</th>';}).join('')+'<th class="num">합계</th></tr></thead><tbody>';
   if(!G.length)h+='<tr><td colspan="'+(M.length+2)+'" class="empty">조건에 맞는 내역이 없습니다.</td></tr>';
   G.slice(0,UI.limit).forEach(function(g){
@@ -537,7 +605,7 @@ function renderMonth(rows){
       +'<td class="num"><b>'+N(g.t,dg)+'</b></td></tr>'; all+=g.t; });
   if(G.length)h+='<tr class="tot"><td>합계</td>'+M.map(function(m){return '<td class="num">'+N(colTot[m]||0,dg)+'</td>';}).join('')+'<td class="num">'+N(all,dg)+'</td></tr>';
   h+='</tbody></table>'+(G.length>UI.limit?'<button type="button" class="more" id="more">더 보기</button>':'')+'</div>';
-  $('view').innerHTML=h; if($('more'))$('more').onclick=function(){UI.limit+=300;render();}; bindLinks();
+  $('view').innerHTML=h; if($('more'))$('more').onclick=function(){UI.limit+=300;render();}; bindLinks(); bindTrend();
 }
 /* 전체 내역 */
 function renderList(rows){
