@@ -203,7 +203,7 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
    - 로그인: 매출분석도구·가공비 견적기와 같은 계정·같은 저장 이름(dpt_auth_*)
    - 시트를 고치면 1분 안에 자동 반영 (창으로 돌아올 때도 바로 확인)
    ═══════════════════════════════════════════════════════════ */
-var MAT_VER='v13';
+var MAT_VER='v14';
 var AU_URL_DEFAULT='https://script.google.com/macros/s/AKfycbxSlND4ZKOpxISNQMRdV2d-LA5YxXS1BDe0k2TXKq6g7Tfm6PZ1Rse3mp0Nm4ndZXZdiQ/exec';
 var AU_KEY_DEFAULT='';   /* 비밀키는 공개 저장소에 넣지 않음 — 같은 브라우저의 매출분석·견적기 설정에서 찾거나 처음 한 번 입력 */
 var AU_ROLE={admin:'관리자',uploader:'업로더',user:'일반'};
@@ -345,6 +345,8 @@ function toNum(x){ if(typeof x==='number')return isFinite(x)?x:0; var s=String(x
 function toDate(x){ var m=/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/.exec(String(x||'')); return m?(m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2)):''; }
 function fmtT(t){ if(!t)return ''; return (Math.round(t)===t)?t.toFixed(1):String(+t.toFixed(3)); }
 function fmtW(w){ if(!w)return ''; return (Math.round(w)===w)?String(w):String(+w.toFixed(2)); }
+/* v14 : 시트 사용파트 칸 띄어쓰기가 줄마다 달라(«생산 1파트»·«생산1파트») 같은 파트가 두 번 나오던 문제 → 띄어쓰기를 없애고 «생산 1파트» 한 모양으로 */
+function normPart(v){ var t=String(v==null?'':v).replace(/\s+/g,''); if(!t)return ''; var m=/^생산(\d+)파트$/.exec(t); return m?('생산 '+m[1]+'파트'):t; }
 function buildRows(head,rows){
   var H=head.map(nrm);
   function all(n){var a=[];H.forEach(function(h,i){if(h===n)a.push(i);});return a;}
@@ -360,7 +362,7 @@ function buildRows(head,rows){
   function gv(r,i){return (i>=0&&i<r.length)?r[i]:'';}
   return rows.map(function(r,ix){
     var mg=String(gv(r,I.mg)||gv(r,I.bg)||'').trim().toUpperCase(), mt=toNum(gv(r,I.mt))||toNum(gv(r,I.bt)), mw=toNum(gv(r,I.mw))||toNum(gv(r,I.bw));
-    var o={i:ix,d:toDate(gv(r,I.d)),part:String(gv(r,I.part)||'').trim(),code:String(gv(r,I.code)||'').trim(),name:String(gv(r,I.name)||'').trim(),spec:String(gv(r,I.spec)||'').trim(),
+    var o={i:ix,d:toDate(gv(r,I.d)),part:normPart(gv(r,I.part)),code:String(gv(r,I.code)||'').trim(),name:String(gv(r,I.name)||'').trim(),spec:String(gv(r,I.spec)||'').trim(),
       mg:mg,mt:mt,mw:mw,len:toNum(gv(r,I.len)),uw:toNum(gv(r,I.uw)),prod:toNum(gv(r,I.prod)),good:toNum(gv(r,I.good)),bad:toNum(gv(r,I.bad)),
       lot:String(gv(r,I.lot)||'').trim(),price:toNum(gv(r,I.price)),coil:toNum(gv(r,I.coil)),input:toNum(gv(r,I.input)),used:toNum(gv(r,I.used)),cost:toNum(gv(r,I.cost))};
     o.ym=o.d.slice(0,7);
@@ -375,7 +377,7 @@ function buildRows(head,rows){
 /* ───── 화면 상태 ───── */
 var DB={rows:[],rev:'',at:'',n:0,sheet:'',title:'',url:''};
 var UI=Object.assign({tab:'mat',q:'',per:'all',from:'',to:'',part:'',grade:'',sort:{},open:{},mMetric:'used',mBy:'mat',limit:300},lsGet(UI_KEY)||{});
-UI.open={}; UI.limit=300;
+UI.open={}; UI.limit=300; UI.part=normPart(UI.part);
 function saveUI(){lsSet(UI_KEY,{mYear:UI.mYear||'',tab:UI.tab,per:UI.per,from:UI.from,to:UI.to,part:UI.part,grade:UI.grade,sort:UI.sort,mMetric:UI.mMetric,mBy:UI.mBy});}
 
 function N(v,d){ if(!isFinite(v))return '-'; return Number(v).toLocaleString('ko-KR',{maximumFractionDigits:d==null?0:d,minimumFractionDigits:d||0}); }
