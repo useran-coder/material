@@ -41,6 +41,9 @@ header.top{position:sticky;top:0;z-index:50;background:#fff;border-bottom:2px so
 .ptrend .pt-stats b.g{color:#0d9488}
 .ptrend .pt-stats b.y{color:#a16207}
 .ptrend .pt-svg{padding:4px 6px 0}
+.ptrend .pt-pu{padding:7px 13px 9px;font-size:11.5px;color:#7b8798;border-top:1px solid #eef2f7;background:#fffaf5}
+.ptrend .pt-pu b{color:#c2410c}
+.ptrend .pt-pu a{color:#2563eb;font-weight:700}
 .ptrend-empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}
 #srchWrap{flex:1 1 auto;display:flex;justify-content:center;min-width:0}
 #srch{display:flex;align-items:center;width:min(560px,100%);height:38px;border:1px solid var(--line2);border-radius:10px;background:#fff;overflow:hidden}
@@ -197,7 +200,7 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
    - 로그인: 매출분석도구·가공비 견적기와 같은 계정·같은 저장 이름(dpt_auth_*)
    - 시트를 고치면 1분 안에 자동 반영 (창으로 돌아올 때도 바로 확인)
    ═══════════════════════════════════════════════════════════ */
-var MAT_VER='v11';
+var MAT_VER='v12';
 var AU_URL_DEFAULT='https://script.google.com/macros/s/AKfycbxSlND4ZKOpxISNQMRdV2d-LA5YxXS1BDe0k2TXKq6g7Tfm6PZ1Rse3mp0Nm4ndZXZdiQ/exec';
 var AU_KEY_DEFAULT='';   /* 비밀키는 공개 저장소에 넣지 않음 — 같은 브라우저의 매출분석·견적기 설정에서 찾거나 처음 한 번 입력 */
 var AU_ROLE={admin:'관리자',uploader:'업로더',user:'일반'};
@@ -570,6 +573,61 @@ function itemSub(g){
 }
 /* 월별 */
 /* v7 : 월별 사용량 표 위 추이 그래프 — 지금 조건(기간·파트·강종·검색)에 맞는 줄을 연도별 1~12월로 합산 */
+/* v12 : 매입분석도구 매입 자료(같은 주소 이 PC 저장소 IndexedDB «dbpastec_purchase» › datasets, 읽기만)
+   kg 단위 매입행의 품명·규격에서 강종·두께·폭을 찾아 원자재별 월 매입중량(kg)·매입금액을 모음 */
+var PU={state:'',map:{},rows:0,files:0,at:0,err:''};
+function puGk(g){ var x=String(g||'').toUpperCase().replace(/\s+/g,'').split('-')[0].replace(/\(.*$/,''); return x.replace(/^SUS/,'STS'); }
+function puGradeHit(a,b){ a=puGk(a); b=puGk(b); if(!a||!b)return true; if(a===b)return true; var L=a.length>b.length?a:b, S=a.length>b.length?b:a; return L.indexOf(S)===0&&/^\d/.test(L.slice(S.length)); }
+function puParse(name,spec){
+  var s=(String(name||'')+' '+String(spec||'')).toUpperCase();
+  var gm=/(?:^|[^A-Z])(STS\s*\d{3}|SUS\s*\d{3}|SGCC|SECC|SPCC|SPHC|SGLCC|HGI|EGI|GA|GI|PO|CR|HR)(?=$|[^A-Z])/.exec(s);
+  var s2=s.replace(/[×＊*Ｘ]/g,'X').replace(/\s+/g,''), m=/(\d+(?:\.\d+)?)T?X(\d+(?:\.\d+)?)/.exec(s2);
+  if(!m)return null; var t=parseFloat(m[1]), w=parseFloat(m[2]); if(!(t>0&&t<=12&&w>=5&&w<=2600))return null;
+  return {g:gm?gm[1].replace(/\s+/g,''):'',t:t,w:w};
+}
+function puLoad(){
+  return new Promise(function(res){
+    var done=function(){ res(); };
+    try{
+      var rq=indexedDB.open('dbpastec_purchase'), made=false;
+      rq.onupgradeneeded=function(){ made=true; try{ rq.transaction.abort(); }catch(_e){} };
+      rq.onerror=function(){ if(!PU.state)PU.state='none'; done(); };
+      rq.onsuccess=function(){ var db=rq.result;
+        if(made||!db.objectStoreNames.contains('kv')){ db.close(); PU.state='none'; return done(); }
+        try{ var g=db.transaction('kv','readonly').objectStore('kv').get('datasets');
+          g.onsuccess=function(){ db.close(); var ds=g.result||[], map={}, n=0;
+            ds.forEach(function(d){ (d&&d.recs||[]).forEach(function(r){
+              if(!r||!/kg/i.test(String(r.unit||'')))return; var q=+r.qty||0; if(!q)return;
+              var ym=String(r.d||'').slice(0,7); if(!/^\d{4}-\d{2}$/.test(ym))return;
+              var o=puParse(r.name,r.spec); if(!o)return;
+              var k=(+o.t)+'x'+(+o.w), x=map[k]||(map[k]=[]), it=null;
+              for(var i=0;i<x.length;i++)if(x[i].g===puGk(o.g)){ it=x[i]; break; }
+              if(!it){ it={g:puGk(o.g),kg:{},amt:{},n:0,vend:{}}; x.push(it); }
+              it.kg[ym]=(it.kg[ym]||0)+q; it.amt[ym]=(it.amt[ym]||0)+(+r.supply||0); it.n++; it.vend[r.vendor||'']=1; n++;
+            }); });
+            PU.map=map; PU.rows=n; PU.files=ds.length; PU.at=Date.now(); PU.state=ds.length?'ok':'none'; done(); };
+          g.onerror=function(){ db.close(); PU.state='none'; done(); };
+        }catch(e){ db.close(); PU.state='none'; PU.err=String(e&&e.message||e); done(); }
+      };
+    }catch(e){ PU.state='none'; PU.err=String(e&&e.message||e); done(); }
+    setTimeout(done,4000);
+  });
+}
+/* 지금 표에 있는 원자재들(강종·두께·폭)의 월별 매입 합계 */
+function puFor(rows,year,mm){
+  var out={v:Array(12).fill(0),n:0,mats:0,hit:0}, seen={};
+  rows.forEach(function(o){ if(!(o.mt>0&&o.mw>0))return; var k=o.mg+'|'+o.mt+'|'+o.mw; if(seen[k])return; seen[k]=1; out.mats++;
+    var x=PU.map[(+o.mt)+'x'+(+o.mw)]; if(!x)return; var any=false;
+    x.forEach(function(it){ if(!puGradeHit(o.mg,it.g))return; any=true; out.n+=it.n;
+      var src=mm==='cost'?it.amt:it.kg; Object.keys(src).forEach(function(ym){ if(ym.slice(0,4)!==year)return; var mi=+ym.slice(5,7)-1; if(mi>=0&&mi<12)out.v[mi]+=src[ym]; }); });
+    if(any)out.hit++; });
+  return out;
+}
+var _puBusy=false;
+function puRefresh(){ if(_puBusy)return; _puBusy=true; var before=PU.at; puLoad().then(function(){ _puBusy=false; if(PU.at!==before&&UI.tab==='month'&&DB.rows.length)render(); }); }
+puRefresh();
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible')puRefresh(); });
+
 function trendHtml(rows){
   var mm=UI.mMetric, ys={}; rows.forEach(function(o){ if(/^\d{4}/.test(o.ym))ys[o.ym.slice(0,4)]=1; });
   ys=Object.keys(ys).sort().reverse(); if(!ys.length)return '';
@@ -589,7 +647,9 @@ function trendHtml(rows){
   live.forEach(function(i){ if(v[i]>v[mxi])mxi=i; if(v[i]<v[mni])mni=i; });
   var curMonth=(year===cy)?(new Date().getMonth()+1):0;
   var WD=Math.max(660,Math.round(($('view')&&$('view').clientWidth)||1180)-14), H=330,pL=58,pR=132,pT=56,pB=36, iw=WD-pL-pR, ih=H-pT-pB;
-  var top=Math.max(1,Math.max.apply(null,v))*1.14, X=function(i){return pL+iw*i/11;}, Y=function(x){return pT+ih-(x/top)*ih;};
+  /* v12 : 매입량 선 (사용중량 → 매입중량 kg, 재료비 → 매입금액) */
+  var PV=(mm==='used'||mm==='cost')&&PU.state==='ok'?puFor(rows,year,mm):null, pvOn=!!(PV&&PV.hit);
+  var top=Math.max(1,Math.max.apply(null,v),pvOn?Math.max.apply(null,PV.v):0)*1.14, X=function(i){return pL+iw*i/11;}, Y=function(x){return pT+ih-(x/top)*ih;};
   /* 시트 자료가 시작되기 전 달·아직 오지 않은 달은 선을 그리지 않음(0으로 떨어져 보이지 않게) */
   var s0=11; DB.rows.forEach(function(o){ if(String(o.ym).slice(0,4)===year){ var mi=+o.ym.slice(5,7)-1; if(mi>=0&&mi<s0)s0=mi; } });
   var e0=curMonth?curMonth-1:11; if(s0>e0)s0=e0;
@@ -609,10 +669,32 @@ function trendHtml(rows){
   var ay=Y(avg), avgLine='<line x1="'+pL+'" y1="'+ay.toFixed(1)+'" x2="'+(WD-pR+10)+'" y2="'+ay.toFixed(1)+'" stroke="#facc15" stroke-width="1.8" stroke-dasharray="7 5"/><g><rect x="'+(WD-pR+16)+'" y="'+(ay-13).toFixed(1)+'" width="'+(pR-24)+'" height="26" rx="13" fill="#fffbea" stroke="#facc15"/><text x="'+(WD-pR+16+(pR-24)/2)+'" y="'+(ay+4.5).toFixed(1)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#a16207">평균 '+N(avg,dg)+'</text></g>';
   var nowLine=''; if(curMonth){ var nx=X(curMonth-1); nowLine='<line x1="'+nx.toFixed(1)+'" y1="'+(pT-16)+'" x2="'+nx.toFixed(1)+'" y2="'+(pT+ih+6)+'" stroke="#f87171" stroke-width="1.4" stroke-dasharray="6 5"/><g><rect x="'+(nx-40).toFixed(1)+'" y="'+(pT-36)+'" width="80" height="22" rx="11" fill="#fff" stroke="#f87171"/><text x="'+nx.toFixed(1)+'" y="'+(pT-21)+'" text-anchor="middle" font-size="11.5" font-weight="800" fill="#ef4444">'+curMonth+'월 현재</text></g>'; }
   var base='<line x1="'+pL+'" y1="'+(pT+ih)+'" x2="'+(WD-pR+10)+'" y2="'+(pT+ih)+'" stroke="#e5eaf1"/>';
-  var svg='<svg viewBox="0 0 '+WD+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="xMinYMin meet">'+base+avgLine+nowLine+'<polyline points="'+pts.join(' ')+'" fill="none" stroke="#2f7ef0" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>'+dots+labs+xa+'</svg>';
+  var puSvg='', puTot=0, pname=mm==='cost'?'매입금액':'매입량';
+  if(pvOn){
+    var pe=curMonth?curMonth-1:11, ps=0; while(ps<pe&&!PV.v[ps])ps++;
+    var pp=[], pd='';
+    for(var q=ps;q<=pe;q++){ var px=X(q), py=Y(PV.v[q]); puTot+=PV.v[q]; pp.push(px.toFixed(1)+','+py.toFixed(1));
+      pd+='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="4" fill="#f97316" stroke="#fff" stroke-width="1.5"><title>'+(q+1)+'월 '+pname+' '+U(PV.v[q],dg)+'</title></circle>';
+      /* 라벨은 사용중량 점과 겹치지 않게 : 매입이 더 크면 점 위, 작으면 점 아래. 사용중량 라벨과 너무 가까우면 숫자는 생략(점에 마우스를 올리면 보임) */
+      var uy=(q>=s0&&q<=e0&&n[q])?Y(v[q]):null, ly=(uy!=null&&py<uy)?py-10:py+18;
+      if(uy!=null&&Math.abs(ly-(uy-14))<15)ly=(ly<uy)?Math.min(ly,uy-30):Math.max(ly,uy+18);
+      if(uy!=null&&Math.abs(ly-(uy-14))<13)continue;
+      if(uy!=null&&(q===mxi||(q===mni&&mxi!==mni))&&!(uy>pT+ih*0.72)&&ly>uy&&ly<uy+48)ly=uy+48;   /* 최고·최저 배지 아래로 */
+      if(PV.v[q])pd+='<text x="'+px.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="middle" font-size="11.5" font-weight="700" fill="#c2410c">'+N(PV.v[q],dg)+'</text>'; }
+    puSvg='<polyline points="'+pp.join(' ')+'" fill="none" stroke="#f97316" stroke-width="2.2" stroke-dasharray="6 4" stroke-linejoin="round" stroke-linecap="round"/>'+pd;
+  }
+  var lg='<g font-size="12" font-weight="700"><line x1="'+pL+'" y1="18" x2="'+(pL+22)+'" y2="18" stroke="#2f7ef0" stroke-width="2.6"/><text x="'+(pL+28)+'" y="22" fill="#334155">'+mname+'(생산일지)</text>'
+    +(pvOn?'<line x1="'+(pL+150)+'" y1="18" x2="'+(pL+172)+'" y2="18" stroke="#f97316" stroke-width="2.2" stroke-dasharray="6 4"/><text x="'+(pL+178)+'" y="22" fill="#c2410c">'+pname+'(매입분석도구)</text>':'')+'</g>';
+  var svg='<svg viewBox="0 0 '+WD+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="xMinYMin meet">'+base+lg+avgLine+nowLine+puSvg+'<polyline points="'+pts.join(' ')+'" fill="none" stroke="#2f7ef0" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>'+dots+labs+xa+'</svg>';
   var head='<div class="pt-head"><span class="pt-title">📈 '+esc(label)+' · '+year+'년 · 월별 '+mname+' 추이</span><span class="pt-years">'+chips+'</span>'+units
     +'<span class="pt-stats">합계 <b>'+U(tot,dg)+'</b> · 평균 <b class="y">'+U(avg,dg)+'</b>(사용월 '+live.length+'개월) · 최고 <b class="r">'+U(v[mxi],dg)+'</b>('+(mxi+1)+'월) · 최저 <b class="g">'+U(v[mni],dg)+'</b>('+(mni+1)+'월) · '+N(cnt)+'건'+(curMonth?' · '+curMonth+'월 진행 중':'')+'</span></div>';
-  return '<div class="ptrend">'+head+'<div class="pt-svg">'+svg+'</div></div>';
+  var pnote='';
+  if(mm==='used'||mm==='cost'){
+    if(pvOn)pnote='<div class="pt-pu">🟠 '+pname+'(매입분석도구, '+year+'년): 합계 <b>'+U(puTot,dg)+'</b> · 표의 원자재 '+N(PV.mats)+'종 중 '+N(PV.hit)+'종 매입 기록 있음'+(PV.hit<PV.mats?' (나머지는 매입분석도구에 같은 강종·두께·폭 kg 매입이 없음)':'')+' · 품명·규격의 «강종 두께x폭»으로 맞춤</div>';
+    else if(PU.state==='ok')pnote='<div class="pt-pu">🟠 매입분석도구 자료에 이 원자재(같은 강종·두께·폭)의 kg 매입 기록이 없습니다.</div>';
+    else if(PU.state==='none')pnote='<div class="pt-pu">🟠 이 PC에 매입분석도구 자료가 없어 매입량을 그리지 못했습니다. 이 PC에서 <a href="https://useran-coder.github.io/purchase/" target="_blank" rel="noopener">매입분석도구</a>를 한 번 열어 매입자료를 받은 뒤 이 화면으로 돌아오면 자동으로 나옵니다.</div>';
+  }
+  return '<div class="ptrend">'+head+'<div class="pt-svg">'+svg+'</div>'+pnote+'</div>';
 }
 function bindTrend(){
   $('view').querySelectorAll('[data-pty]').forEach(function(b){b.onclick=function(){UI.mYear=b.dataset.pty;saveUI();render();};});
