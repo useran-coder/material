@@ -51,6 +51,9 @@ header.top{position:sticky;top:0;z-index:50;background:#fff;border-bottom:2px so
 #srch input{flex:1;border:0;box-shadow:none;height:100%;padding:0 12px;min-width:0}
 #srch button{border:0;background:transparent;height:100%;padding:0 12px;color:var(--muted);font-size:15px}
 #srch button:hover{color:var(--accent)}
+#srch button svg{display:block}
+#resetAll{flex:0 0 auto;height:38px;padding:0 13px;border:1px solid var(--line2);border-radius:10px;background:#fff;color:#475569;font-size:12.5px;font-weight:700;white-space:nowrap;cursor:pointer}
+#resetAll:hover{border-color:var(--accent);color:var(--accent)}
 .hdr-right{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 #syncChip{font-size:12px;white-space:nowrap;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:#f8fafc;color:var(--muted);cursor:pointer}
 #syncChip.ok{color:var(--ok);border-color:#99f6e4;background:#f0fdfa}
@@ -173,8 +176,8 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
   <div class="brand"><h1>원자재 사용현황</h1><small>(주)동방파스텍 · 생산일지 «원자재 사용현황» 시트 연동</small></div>
   <div id="srchWrap"><form id="srch" role="search" autocomplete="off">
     <input id="q" type="search" placeholder="원자재(EGI 1.6 61) · 품번 · 품명 · 규격 · Lot" aria-label="검색">
-    <button type="submit" title="검색">🔍</button>
-  </form><span id="qInfo"></span></div>
+    <button type="submit" title="검색" aria-label="검색"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg></button>
+  </form><button type="button" id="resetAll" title="검색어·기간·파트·강종을 모두 처음 상태로">↺ 초기화</button><span id="qInfo"></span></div>
   <div class="hdr-right">
     <span id="syncChip" title="누르면 지금 시트를 다시 확인합니다">연결 전</span>
     <span id="auChip"></span>
@@ -200,7 +203,7 @@ html:not(.au-in) body>*:not(#auGate){visibility:hidden!important}
    - 로그인: 매출분석도구·가공비 견적기와 같은 계정·같은 저장 이름(dpt_auth_*)
    - 시트를 고치면 1분 안에 자동 반영 (창으로 돌아올 때도 바로 확인)
    ═══════════════════════════════════════════════════════════ */
-var MAT_VER='v12';
+var MAT_VER='v13';
 var AU_URL_DEFAULT='https://script.google.com/macros/s/AKfycbxSlND4ZKOpxISNQMRdV2d-LA5YxXS1BDe0k2TXKq6g7Tfm6PZ1Rse3mp0Nm4ndZXZdiQ/exec';
 var AU_KEY_DEFAULT='';   /* 비밀키는 공개 저장소에 넣지 않음 — 같은 브라우저의 매출분석·견적기 설정에서 찾거나 처음 한 번 입력 */
 var AU_ROLE={admin:'관리자',uploader:'업로더',user:'일반'};
@@ -794,6 +797,8 @@ var Data=(function(){
 
 var tt=0; function toast(t){var e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){e.classList.remove('on');},3500);}
 
+/* v13 : 초기화 — 검색어·기간·파트·강종을 처음 상태로(보고 있는 탭·정렬은 그대로) */
+$('resetAll').addEventListener('click',function(){ UI.per='all'; UI.from=''; UI.to=''; UI.part=''; UI.grade=''; UI.mYear=''; setQ(''); });
 $('srch').addEventListener('submit',function(e){e.preventDefault();setQ($('q').value,true);});
 $('q').addEventListener('input',function(){ var v=this.value; clearTimeout(this._t); this._t=setTimeout(function(){ if(v.trim()!==UI.q){ UI.q=v.trim(); UI.open={}; UI.limit=300; render(); } },300); });
 document.addEventListener('keydown',function(e){ if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('q').focus();} });
